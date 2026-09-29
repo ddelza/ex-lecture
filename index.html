@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>강의 이력 관리</title>
+<style>
+* { box-sizing: border-box; }
+:root {
+  --bg: #f5f6f8; --surface: #ffffff; --text: #1a1a1a; --text-muted: #888888;
+  --border: #d0d6e2; --accent: #1a3d7c; --accent-soft: #e6ebf5; --danger: #c0392b; --danger-soft: #fdecea;
+  --ok: #1e7e34; --ok-soft: #e6f4ea;
+}
+body { margin: 0; font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; background: var(--bg); color: var(--text); }
+.wrap { max-width: 900px; margin: 0 auto; padding: 20px 16px 60px; }
+h1 { font-size: 1.25rem; color: var(--accent); margin: 0 0 4px; }
+.sub { font-size: 0.82rem; color: var(--text-muted); margin: 0 0 18px; }
+
+.gate-overlay { position: fixed; inset: 0; z-index: 999; background: var(--bg); display: flex; align-items: center; justify-content: center; }
+.gate-box { background: var(--surface); border-radius: 16px; padding: 36px 30px; max-width: 340px; width: 90%; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+.gate-box h2 { font-size: 1.05rem; margin: 0 0 6px; color: var(--accent); }
+.gate-box p { font-size: 0.82rem; color: var(--text-muted); margin: 0 0 18px; }
+.gate-box input { width: 100%; padding: 11px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 1rem; text-align: center; letter-spacing: 2px; margin-bottom: 10px; }
+.gate-box button { width: 100%; padding: 12px; border: none; border-radius: 10px; background: var(--accent); color: #fff; font-size: 0.92rem; font-weight: 700; cursor: pointer; }
+.gate-error { font-size: 0.8rem; color: var(--danger); margin-top: 8px; display: none; }
+.gate-error.show { display: block; }
+
+.card { background: var(--surface); border-radius: 14px; padding: 18px 18px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 16px; }
+.card h2 { font-size: 1rem; color: var(--accent); margin: 0 0 14px; }
+.field { margin-bottom: 12px; }
+.field label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+.field .hint { font-size: 0.74rem; color: var(--text-muted); font-weight: 400; margin-left: 4px; }
+.field input[type=text], .field input[type=date], .field input[type=url], .field input[type=number], .field textarea, .field select {
+  width: 100%; padding: 10px 11px; border: 1.5px solid var(--border); border-radius: 9px; font-size: 0.9rem; font-family: inherit; background: #fff; color: var(--text);
+}
+.field textarea { resize: vertical; min-height: 64px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.checkbox-field { display: flex; align-items: center; gap: 8px; }
+.checkbox-field input { width: 17px; height: 17px; }
+.checkbox-field label { margin: 0; font-size: 0.86rem; }
+.file-list { margin-top: 8px; display: flex; flex-direction: column; gap: 5px; }
+.file-list .frow { display: flex; align-items: center; justify-content: space-between; background: var(--accent-soft); border-radius: 8px; padding: 6px 10px; font-size: 0.78rem; }
+.file-list .frow a { color: var(--accent); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-list .frow button { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 0.9rem; padding: 0 2px; }
+
+.drive-status { display: flex; align-items: center; gap: 8px; font-size: 0.82rem; margin-bottom: 14px; padding: 9px 12px; border-radius: 9px; background: var(--accent-soft); color: var(--accent); }
+.drive-status.connected { background: var(--ok-soft); color: var(--ok); }
+.drive-status button { margin-left: auto; padding: 6px 12px; border-radius: 999px; border: none; background: var(--accent); color: #fff; font-size: 0.78rem; cursor: pointer; }
+
+.btn { padding: 10px 18px; border-radius: 999px; font-size: 0.88rem; font-weight: 700; cursor: pointer; border: 1px solid var(--border); background: var(--accent-soft); color: var(--accent); }
+.btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); width: 100%; padding: 13px; font-size: 0.92rem; }
+.btn.primary:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn.small { padding: 6px 12px; font-size: 0.78rem; }
+.btn.danger { background: var(--danger-soft); color: var(--danger); }
+.save-status { font-size: 0.8rem; margin-top: 10px; text-align: center; display: none; }
+.save-status.show { display: block; }
+.save-status.err { color: var(--danger); }
+.save-status.ok { color: var(--ok); }
+
+.toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+.search-box { flex: 1; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 0.88rem; }
+.list-empty { text-align: center; color: var(--text-muted); padding: 40px 0; font-size: 0.88rem; }
+
+.lecture-card { background: var(--surface); border-radius: 12px; padding: 15px 16px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.lc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
+.lc-title { font-size: 0.98rem; font-weight: 700; color: var(--text); }
+.lc-date { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; }
+.lc-meta { font-size: 0.82rem; color: var(--text-muted); line-height: 1.6; margin-bottom: 8px; }
+.lc-meta b { color: var(--text); font-weight: 600; }
+.badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; background: #fff3e0; color: #e65100; margin-left: 4px; }
+.lc-memo { font-size: 0.82rem; color: var(--text); background: var(--bg); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; white-space: pre-wrap; }
+.lc-files { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.lc-files a { font-size: 0.76rem; background: var(--accent-soft); color: var(--accent); text-decoration: none; padding: 4px 10px; border-radius: 999px; }
+.lc-actions { display: flex; gap: 8px; }
+</style>
+</head>
+<body>
+
+<div class="gate-overlay" id="gateOverlay">
+  <div class="gate-box">
+    <h2>강의 이력 관리</h2>
+    <p>비밀번호를 입력해주세요.</p>
+    <input type="password" id="gatePw" inputmode="numeric" placeholder="비밀번호">
+    <button onclick="checkGate()">입장</button>
+    <div class="gate-error" id="gateError">비밀번호가 올바르지 않습니다.</div>
+  </div>
+</div>
+
+<div class="wrap" id="appWrap" style="display:none">
+  <h1>강의 이력 관리</h1>
+  <p class="sub">나만 보는 강의 이력 기록 페이지</p>
+
+  <div class="card">
+    <h2 id="formTitle">새 강의 기록 추가</h2>
+
+    <div class="field">
+      <label>1. 강의 이름</label>
+      <input type="text" id="f_title" placeholder="예: AI 활용 수업 설계 연수">
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>2. 날짜</label>
+        <input type="date" id="f_date">
+      </div>
+      <div class="field">
+        <label>3. 시간</label>
+        <input type="text" id="f_time" placeholder="예: 14:00~16:00">
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>4. 장소</label>
+        <input type="text" id="f_place" placeholder="예: 경기도교육연수원">
+      </div>
+      <div class="field">
+        <label>5. 주최 기관</label>
+        <input type="text" id="f_host" placeholder="예: OO교육청">
+      </div>
+    </div>
+
+    <div class="field checkbox-field">
+      <input type="checkbox" id="f_permission">
+      <label for="f_permission">6. 겸직 허가 신청 필요</label>
+    </div>
+
+    <div class="field">
+      <label>7. 보수 <span class="hint">(원)</span></label>
+      <input type="number" id="f_pay" placeholder="예: 300000">
+    </div>
+
+    <div class="field">
+      <label>8. 강의자료 <span class="hint">(파일 첨부 또는 캔바 링크)</span></label>
+      <input type="file" id="f_materialsFile" multiple>
+      <input type="url" id="f_canvaLink" placeholder="캔바 링크 (선택)" style="margin-top:6px">
+      <div class="file-list" id="materialsExisting"></div>
+    </div>
+
+    <div class="field">
+      <label>9. 강사카드 등 기타 서류 <span class="hint">(파일 첨부)</span></label>
+      <input type="file" id="f_otherFile" multiple>
+      <div class="file-list" id="otherExisting"></div>
+    </div>
+
+    <div class="field">
+      <label>10. 자유 메모</label>
+      <textarea id="f_memo" placeholder="기타 메모"></textarea>
+    </div>
+
+    <div class="drive-status" id="driveStatus">
+      <span id="driveStatusText">Google Drive 미연결 — 파일을 첨부하려면 먼저 연결하세요.</span>
+      <button onclick="connectDrive()">Google Drive 연결</button>
+    </div>
+
+    <button class="btn primary" id="saveBtn" onclick="saveRecord()">저장</button>
+    <div class="save-status" id="saveStatus"></div>
+    <button class="btn small" id="cancelEditBtn" style="display:none;margin-top:8px" onclick="resetForm()">수정 취소</button>
+  </div>
+
+  <div class="toolbar">
+    <input type="text" class="search-box" id="searchBox" placeholder="강의 이름 / 기관 / 장소 검색" oninput="renderList()">
+  </div>
+
+  <div id="listWrap"></div>
+</div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+const ADMIN_PASSWORD = '260119';
+const SESSION_KEY = 'lectureHistoryUnlocked';
+
+const DB_URL = 'https://gwangsu-on-default-rtdb.firebaseio.com';
+// gwangsu-on Firebase 규칙상 years/$year 하위만 공개 read/write가 허용되어 있어,
+// 강의 날짜와 무관하게 고정된 컨테이너로 이 경로를 그대로 재사용한다.
+const YEAR = 2026;
+const RECORDS_PATH = `${DB_URL}/years/${YEAR}/lectureHistory`;
+
+const GOOGLE_CLIENT_ID = 'REPLACE_WITH_GOOGLE_OAUTH_CLIENT_ID';
+const DRIVE_FOLDER_ID = '1cOvZnfxV0q2Q4hzftwMQH8NG6FXuoFVs';
+
+function checkGate() {
+  const pw = document.getElementById('gatePw').value;
+  if (pw === ADMIN_PASSWORD) {
+    localStorage.setItem(SESSION_KEY, '1');
+    openApp();
+  } else {
+    document.getElementById('gateError').classList.add('show');
+  }
+}
+document.getElementById('gatePw').addEventListener('keydown', e => { if (e.key === 'Enter') checkGate(); });
+
+function openApp() {
+  document.getElementById('gateOverlay').style.display = 'none';
+  document.getElementById('appWrap').style.display = 'block';
+  loadRecords();
+}
+if (localStorage.getItem(SESSION_KEY) === '1') openApp();
+
+// ---------- Google Drive (OAuth, 브라우저에서 직접 업로드) ----------
+let accessToken = null;
+let tokenClient = null;
+
+window.addEventListener('load', () => {
+  if (window.google && google.accounts) {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: 'https://www.googleapis.com/auth/drive.file',
+      callback: () => {}
+    });
+  }
+});
+
+function connectDrive() {
+  if (!tokenClient) { alert('Google 인증 스크립트를 아직 불러오는 중입니다. 잠시 후 다시 시도해주세요.'); return; }
+  tokenClient.callback = (resp) => {
+    if (resp.error) { alert('Drive 연결 실패: ' + resp.error); return; }
+    accessToken = resp.access_token;
+    updateDriveStatus();
+  };
+  tokenClient.requestAccessToken({ prompt: accessToken ? '' : 'consent' });
+}
+
+function ensureToken() {
+  return new Promise((resolve, reject) => {
+    if (accessToken) return resolve(accessToken);
+    if (!tokenClient) return reject(new Error('Google 인증 스크립트 로딩 전입니다.'));
+    tokenClient.callback = (resp) => {
+      if (resp.error) return reject(resp);
+      accessToken = resp.access_token;
+      updateDriveStatus();
+      resolve(accessToken);
+    };
+    tokenClient.requestAccessToken({ prompt: 'consent' });
+  });
+}
+
+function updateDriveStatus() {
+  const el = document.getElementById('driveStatus');
+  const text = document.getElementById('driveStatusText');
+  if (accessToken) {
+    el.classList.add('connected');
+    text.textContent = 'Google Drive 연결됨';
+  } else {
+    el.classList.remove('connected');
+    text.textContent = 'Google Drive 미연결 — 파일을 첨부하려면 먼저 연결하세요.';
+  }
+}
+
+function arrayBufferToBase64(buffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+async function uploadFileToDrive(file) {
+  const token = await ensureToken();
+  const metadata = { name: file.name, parents: [DRIVE_FOLDER_ID] };
+  const boundary = '-------lecturehist' + Date.now();
+  const delimiter = `\r\n--${boundary}\r\n`;
+  const closeDelim = `\r\n--${boundary}--`;
+  const base64Data = arrayBufferToBase64(await file.arrayBuffer());
+
+  const body =
+    delimiter +
+    'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
+    JSON.stringify(metadata) +
+    delimiter +
+    `Content-Type: ${file.type || 'application/octet-stream'}\r\n` +
+    'Content-Transfer-Encoding: base64\r\n\r\n' +
+    base64Data +
+    closeDelim;
+
+  const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink,name', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': `multipart/related; boundary=${boundary}` },
+    body
+  });
+  if (!res.ok) throw new Error('업로드 실패: ' + file.name);
+  return res.json();
+}
+
+async function uploadFiles(fileInputEl) {
+  const files = Array.from(fileInputEl.files || []);
+  const results = [];
+  for (const f of files) {
+    const r = await uploadFileToDrive(f);
+    results.push({ id: r.id, name: r.name, url: r.webViewLink });
+  }
+  return results;
+}
+
+// ---------- 레코드 CRUD (Firebase REST) ----------
+let records = {};
+let editId = null;
+let existingMaterials = [];
+let existingOther = [];
+
+async function loadRecords() {
+  const res = await fetch(`${RECORDS_PATH}.json`);
+  records = (await res.json()) || {};
+  renderList();
+}
+
+function resetForm() {
+  editId = null;
+  existingMaterials = [];
+  existingOther = [];
+  document.getElementById('formTitle').textContent = '새 강의 기록 추가';
+  document.getElementById('f_title').value = '';
+  document.getElementById('f_date').value = '';
+  document.getElementById('f_time').value = '';
+  document.getElementById('f_place').value = '';
+  document.getElementById('f_host').value = '';
+  document.getElementById('f_permission').checked = false;
+  document.getElementById('f_pay').value = '';
+  document.getElementById('f_canvaLink').value = '';
+  document.getElementById('f_memo').value = '';
+  document.getElementById('f_materialsFile').value = '';
+  document.getElementById('f_otherFile').value = '';
+  document.getElementById('materialsExisting').innerHTML = '';
+  document.getElementById('otherExisting').innerHTML = '';
+  document.getElementById('cancelEditBtn').style.display = 'none';
+  document.getElementById('saveStatus').classList.remove('show');
+}
+
+function renderExistingFiles(containerId, list) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = list.map((f, i) => `
+    <div class="frow">
+      <a href="${f.url}" target="_blank" rel="noopener">${escapeHtml(f.name)}</a>
+      <button onclick="removeExistingFile('${containerId}', ${i})" title="목록에서 제거">✕</button>
+    </div>`).join('');
+}
+
+function removeExistingFile(containerId, idx) {
+  const list = containerId === 'materialsExisting' ? existingMaterials : existingOther;
+  list.splice(idx, 1);
+  renderExistingFiles(containerId, list);
+}
+
+function editRecord(id) {
+  const r = records[id];
+  if (!r) return;
+  editId = id;
+  existingMaterials = (r.materialsFiles || []).slice();
+  existingOther = (r.otherFiles || []).slice();
+  document.getElementById('formTitle').textContent = '강의 기록 수정';
+  document.getElementById('f_title').value = r.title || '';
+  document.getElementById('f_date').value = r.date || '';
+  document.getElementById('f_time').value = r.time || '';
+  document.getElementById('f_place').value = r.place || '';
+  document.getElementById('f_host').value = r.host || '';
+  document.getElementById('f_permission').checked = !!r.needsPermission;
+  document.getElementById('f_pay').value = r.pay || '';
+  document.getElementById('f_canvaLink').value = r.canvaLink || '';
+  document.getElementById('f_memo').value = r.memo || '';
+  renderExistingFiles('materialsExisting', existingMaterials);
+  renderExistingFiles('otherExisting', existingOther);
+  document.getElementById('cancelEditBtn').style.display = 'inline-block';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function saveRecord() {
+  const title = document.getElementById('f_title').value.trim();
+  if (!title) { alert('강의 이름을 입력해주세요.'); return; }
+
+  const saveBtn = document.getElementById('saveBtn');
+  const status = document.getElementById('saveStatus');
+  saveBtn.disabled = true;
+  status.className = 'save-status show';
+  status.textContent = '저장 중...';
+
+  try {
+    const materialsFileInput = document.getElementById('f_materialsFile');
+    const otherFileInput = document.getElementById('f_otherFile');
+    const hasNewFiles = materialsFileInput.files.length || otherFileInput.files.length;
+    if (hasNewFiles && !accessToken) {
+      status.textContent = 'Google Drive 인증 중...';
+    }
+
+    const newMaterials = await uploadFiles(materialsFileInput);
+    const newOther = await uploadFiles(otherFileInput);
+
+    const record = {
+      title,
+      date: document.getElementById('f_date').value,
+      time: document.getElementById('f_time').value.trim(),
+      place: document.getElementById('f_place').value.trim(),
+      host: document.getElementById('f_host').value.trim(),
+      needsPermission: document.getElementById('f_permission').checked,
+      pay: document.getElementById('f_pay').value,
+      canvaLink: document.getElementById('f_canvaLink').value.trim(),
+      materialsFiles: existingMaterials.concat(newMaterials),
+      otherFiles: existingOther.concat(newOther),
+      memo: document.getElementById('f_memo').value.trim(),
+      updatedAt: new Date().toISOString()
+    };
+
+    if (editId) {
+      record.createdAt = records[editId].createdAt || record.updatedAt;
+      await fetch(`${RECORDS_PATH}/${editId}.json`, { method: 'PUT', body: JSON.stringify(record) });
+    } else {
+      record.createdAt = record.updatedAt;
+      await fetch(`${RECORDS_PATH}.json`, { method: 'POST', body: JSON.stringify(record) });
+    }
+
+    status.className = 'save-status show ok';
+    status.textContent = '저장되었습니다.';
+    resetForm();
+    await loadRecords();
+  } catch (err) {
+    status.className = 'save-status show err';
+    status.textContent = '오류: ' + err.message;
+  } finally {
+    saveBtn.disabled = false;
+  }
+}
+
+async function deleteRecord(id) {
+  if (!confirm('이 강의 기록을 삭제할까요? (첨부된 드라이브 파일은 삭제되지 않습니다)')) return;
+  await fetch(`${RECORDS_PATH}/${id}.json`, { method: 'DELETE' });
+  await loadRecords();
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function fmtPay(pay) {
+  const n = Number(pay);
+  if (!pay || isNaN(n)) return pay || '-';
+  return n.toLocaleString('ko-KR') + '원';
+}
+
+function renderList() {
+  const q = document.getElementById('searchBox').value.trim().toLowerCase();
+  const wrap = document.getElementById('listWrap');
+  const entries = Object.entries(records)
+    .filter(([id, r]) => {
+      if (!q) return true;
+      return [r.title, r.host, r.place].some(v => (v || '').toLowerCase().includes(q));
+    })
+    .sort((a, b) => (b[1].date || '').localeCompare(a[1].date || ''));
+
+  if (!entries.length) {
+    wrap.innerHTML = '<div class="list-empty">아직 등록된 강의 기록이 없습니다.</div>';
+    return;
+  }
+
+  wrap.innerHTML = entries.map(([id, r]) => `
+    <div class="lecture-card">
+      <div class="lc-head">
+        <div class="lc-title">${escapeHtml(r.title)}${r.needsPermission ? '<span class="badge">겸직허가 필요</span>' : ''}</div>
+        <div class="lc-date">${escapeHtml(r.date || '')} ${escapeHtml(r.time || '')}</div>
+      </div>
+      <div class="lc-meta">
+        <b>장소</b> ${escapeHtml(r.place || '-')} · <b>주최</b> ${escapeHtml(r.host || '-')} · <b>보수</b> ${fmtPay(r.pay)}
+      </div>
+      ${r.memo ? `<div class="lc-memo">${escapeHtml(r.memo)}</div>` : ''}
+      <div class="lc-files">
+        ${r.canvaLink ? `<a href="${r.canvaLink}" target="_blank" rel="noopener">🔗 캔바 링크</a>` : ''}
+        ${(r.materialsFiles || []).map(f => `<a href="${f.url}" target="_blank" rel="noopener">📄 ${escapeHtml(f.name)}</a>`).join('')}
+        ${(r.otherFiles || []).map(f => `<a href="${f.url}" target="_blank" rel="noopener">📎 ${escapeHtml(f.name)}</a>`).join('')}
+      </div>
+      <div class="lc-actions">
+        <button class="btn small" onclick="editRecord('${id}')">수정</button>
+        <button class="btn small danger" onclick="deleteRecord('${id}')">삭제</button>
+      </div>
+    </div>
+  `).join('');
+}
+</script>
+</body>
+</html>
