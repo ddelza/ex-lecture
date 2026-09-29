@@ -57,6 +57,17 @@ h1 { font-size: 1.25rem; color: var(--accent); margin: 0 0 4px; }
 .save-status.err { color: var(--danger); }
 .save-status.ok { color: var(--ok); }
 
+.summary-card { background: var(--surface); border-radius: 12px; padding: 14px 16px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.summary-head { display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+.summary-head h2 { margin: 0; font-size: 0.92rem; color: var(--accent); }
+.summary-head .total { font-size: 0.92rem; font-weight: 700; color: var(--accent); }
+.summary-body { margin-top: 10px; display: none; }
+.summary-body.open { display: block; }
+.summary-row { display: flex; justify-content: space-between; padding: 6px 2px; font-size: 0.84rem; border-bottom: 1px solid var(--bg); }
+.summary-row:last-child { border-bottom: none; }
+.summary-row .yr { color: var(--text-muted); }
+.summary-row .amt { font-weight: 600; }
+
 .toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
 .search-box { flex: 1; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 0.88rem; }
 .list-empty { text-align: center; color: var(--text-muted); padding: 40px 0; font-size: 0.88rem; }
@@ -156,6 +167,14 @@ h1 { font-size: 1.25rem; color: var(--accent); margin: 0 0 4px; }
     <button class="btn primary" id="saveBtn" onclick="saveRecord()">저장</button>
     <div class="save-status" id="saveStatus"></div>
     <button class="btn small" id="cancelEditBtn" style="display:none;margin-top:8px" onclick="resetForm()">수정 취소</button>
+  </div>
+
+  <div class="summary-card">
+    <div class="summary-head" onclick="toggleSummary()">
+      <h2>보수 합계</h2>
+      <span class="total" id="summaryGrandTotal">0원</span>
+    </div>
+    <div class="summary-body" id="summaryBody"></div>
   </div>
 
   <div class="toolbar">
@@ -437,7 +456,29 @@ function fmtPay(pay) {
   return n.toLocaleString('ko-KR') + '원';
 }
 
+function toggleSummary() {
+  document.getElementById('summaryBody').classList.toggle('open');
+}
+
+function renderSummary() {
+  const byYear = {};
+  let grandTotal = 0;
+  Object.values(records).forEach(r => {
+    const n = Number(r.pay);
+    if (!n) return;
+    const yr = (r.date || '').slice(0, 4) || '연도 미상';
+    byYear[yr] = (byYear[yr] || 0) + n;
+    grandTotal += n;
+  });
+  const years = Object.keys(byYear).sort((a, b) => b.localeCompare(a));
+  document.getElementById('summaryGrandTotal').textContent = grandTotal.toLocaleString('ko-KR') + '원';
+  document.getElementById('summaryBody').innerHTML = years.length
+    ? years.map(yr => `<div class="summary-row"><span class="yr">${escapeHtml(yr)}년</span><span class="amt">${byYear[yr].toLocaleString('ko-KR')}원</span></div>`).join('')
+    : '<div class="summary-row"><span class="yr">기록 없음</span></div>';
+}
+
 function renderList() {
+  renderSummary();
   const q = document.getElementById('searchBox').value.trim().toLowerCase();
   const wrap = document.getElementById('listWrap');
   const entries = Object.entries(records)
