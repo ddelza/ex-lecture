@@ -132,6 +132,17 @@ h1 { font-size: 1.25rem; color: var(--accent); margin: 0 0 4px; }
       </div>
     </div>
 
+    <div class="row2">
+      <div class="field">
+        <label>담당 장학사/연구사 이름</label>
+        <input type="text" id="f_supervisorName" placeholder="예: 홍길동 장학사">
+      </div>
+      <div class="field">
+        <label>연락처</label>
+        <input type="text" id="f_supervisorContact" placeholder="예: 010-1234-5678">
+      </div>
+    </div>
+
     <div class="field checkbox-field">
       <input type="checkbox" id="f_permission">
       <label for="f_permission">6. 겸직 허가 신청 필요</label>
@@ -361,6 +372,8 @@ function resetForm() {
   document.getElementById('f_time').value = '';
   document.getElementById('f_place').value = '';
   document.getElementById('f_host').value = '';
+  document.getElementById('f_supervisorName').value = '';
+  document.getElementById('f_supervisorContact').value = '';
   document.getElementById('f_permission').checked = false;
   document.getElementById('f_pay').value = '';
   document.getElementById('f_linkInput').value = '';
@@ -402,6 +415,8 @@ function editRecord(id) {
   document.getElementById('f_time').value = r.time || '';
   document.getElementById('f_place').value = r.place || '';
   document.getElementById('f_host').value = r.host || '';
+  document.getElementById('f_supervisorName').value = r.supervisorName || '';
+  document.getElementById('f_supervisorContact').value = r.supervisorContact || '';
   document.getElementById('f_permission').checked = !!r.needsPermission;
   document.getElementById('f_pay').value = r.pay || '';
   document.getElementById('f_memo').value = r.memo || '';
@@ -440,6 +455,8 @@ async function saveRecord() {
       time: document.getElementById('f_time').value.trim(),
       place: document.getElementById('f_place').value.trim(),
       host: document.getElementById('f_host').value.trim(),
+      supervisorName: document.getElementById('f_supervisorName').value.trim(),
+      supervisorContact: document.getElementById('f_supervisorContact').value.trim(),
       needsPermission: document.getElementById('f_permission').checked,
       pay: document.getElementById('f_pay').value,
       materialLinks: materialLinks.slice(),
@@ -531,6 +548,7 @@ function renderList() {
       </div>
       <div class="lc-meta">
         <b>장소</b> ${escapeHtml(r.place || '-')} · <b>주최</b> ${escapeHtml(r.host || '-')} · <b>보수</b> ${fmtPay(r.pay)}
+        ${r.supervisorName || r.supervisorContact ? `<br><b>담당 장학사/연구사</b> ${escapeHtml(r.supervisorName || '-')} ${r.supervisorContact ? '(' + escapeHtml(r.supervisorContact) + ')' : ''}` : ''}
       </div>
       ${r.memo ? `<div class="lc-memo">${escapeHtml(r.memo)}</div>` : ''}
       <div class="lc-files">
