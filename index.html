@@ -73,6 +73,7 @@ h1 { font-size: 1.25rem; color: var(--accent); margin: 0 0 4px; }
 .list-empty { text-align: center; color: var(--text-muted); padding: 40px 0; font-size: 0.88rem; }
 
 .lecture-card { background: var(--surface); border-radius: 12px; padding: 15px 16px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+.lecture-card.upcoming { background: #fff8e1; box-shadow: 0 1px 3px rgba(0,0,0,0.06), inset 3px 0 0 #f5b400; }
 .lc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 6px; }
 .lc-title { font-size: 0.98rem; font-weight: 700; color: var(--text); }
 .lc-date { font-size: 0.78rem; color: var(--text-muted); white-space: nowrap; }
@@ -493,8 +494,9 @@ function renderList() {
     return;
   }
 
+  const todayStr = new Date().toISOString().slice(0, 10);
   wrap.innerHTML = entries.map(([id, r]) => `
-    <div class="lecture-card">
+    <div class="lecture-card${r.date && r.date >= todayStr ? ' upcoming' : ''}">
       <div class="lc-head">
         <div class="lc-title">${escapeHtml(r.title)}${r.needsPermission ? '<span class="badge">겸직허가 필요</span>' : ''}</div>
         <div class="lc-date">${escapeHtml(r.date || '')} ${escapeHtml(r.time || '')}</div>
