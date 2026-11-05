@@ -38,6 +38,9 @@ h1 { font-size: 1.25rem; color: var(--accent); margin: 0 0 4px; }
 .checkbox-field { display: flex; align-items: center; gap: 8px; }
 .checkbox-field input { width: 17px; height: 17px; }
 .checkbox-field label { margin: 0; font-size: 0.86rem; }
+.dropzone { border: 2px dashed var(--border); border-radius: 10px; padding: 18px 12px; text-align: center; font-size: 0.82rem; color: var(--text-muted); cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+.dropzone:hover { background: var(--accent-soft); }
+.dropzone.dragover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 .file-list { margin-top: 8px; display: flex; flex-direction: column; gap: 5px; }
 .file-list .frow { display: flex; align-items: center; justify-content: space-between; background: var(--accent-soft); border-radius: 8px; padding: 6px 10px; font-size: 0.78rem; }
 .file-list .frow a { color: var(--accent); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -154,16 +157,20 @@ h1 { font-size: 1.25rem; color: var(--accent); margin: 0 0 4px; }
     </div>
 
     <div class="field">
-      <label>8. 강의자료 <span class="hint">(파일 첨부 또는 캔바 링크)</span></label>
-      <input type="file" id="f_materialsFile" multiple>
+      <label>8. 강의자료 <span class="hint">(파일 여러 개 첨부 또는 링크)</span></label>
+      <div class="dropzone" id="materialsDropzone" onclick="document.getElementById('f_materialsFile').click()">파일을 여기로 끌어다 놓거나 클릭해서 선택 (여러 개 가능)</div>
+      <input type="file" id="f_materialsFile" multiple style="display:none" onchange="addPendingFiles('materials', this.files); this.value='';">
+      <div class="file-list" id="materialsPending"></div>
       <input type="url" id="f_linkInput" placeholder="링크 입력 후 Enter (캔바 등, 여러 개 추가 가능)" style="margin-top:6px" onkeydown="if(event.key==='Enter'){event.preventDefault();addLink();}">
       <div class="file-list" id="linksExisting"></div>
       <div class="file-list" id="materialsExisting"></div>
     </div>
 
     <div class="field">
-      <label>9. 강사카드 등 기타 서류 <span class="hint">(파일 첨부)</span></label>
-      <input type="file" id="f_otherFile" multiple>
+      <label>9. 강사카드 등 기타 서류 <span class="hint">(파일 여러 개 첨부)</span></label>
+      <div class="dropzone" id="otherDropzone" onclick="document.getElementById('f_otherFile').click()">파일을 여기로 끌어다 놓거나 클릭해서 선택 (여러 개 가능)</div>
+      <input type="file" id="f_otherFile" multiple style="display:none" onchange="addPendingFiles('other', this.files); this.value='';">
+      <div class="file-list" id="otherPending"></div>
       <div class="file-list" id="otherExisting"></div>
     </div>
 
@@ -316,15 +323,62 @@ async function uploadFileToDrive(file) {
   return res.json();
 }
 
-async function uploadFiles(fileInputEl) {
-  const files = Array.from(fileInputEl.files || []);
+async function uploadFiles(fileArray) {
   const results = [];
-  for (const f of files) {
+  for (const f of fileArray) {
     const r = await uploadFileToDrive(f);
     results.push({ id: r.id, name: r.name, url: r.webViewLink });
   }
   return results;
 }
+
+// ---------- 첨부 대기 중인 파일 (드래그&드롭 / 다중 선택 누적) ----------
+let pendingMaterialsFiles = [];
+let pendingOtherFiles = [];
+
+function addPendingFiles(kind, fileList) {
+  const arr = kind === 'materials' ? pendingMaterialsFiles : pendingOtherFiles;
+  Array.from(fileList).forEach(f => {
+    if (!arr.some(x => x.name === f.name && x.size === f.size)) arr.push(f);
+  });
+  renderPendingFiles(kind);
+}
+
+function removePendingFile(kind, idx) {
+  (kind === 'materials' ? pendingMaterialsFiles : pendingOtherFiles).splice(idx, 1);
+  renderPendingFiles(kind);
+}
+
+function renderPendingFiles(kind) {
+  const arr = kind === 'materials' ? pendingMaterialsFiles : pendingOtherFiles;
+  const el = document.getElementById(kind === 'materials' ? 'materialsPending' : 'otherPending');
+  el.innerHTML = arr.map((f, i) => `
+    <div class="frow">
+      <span>📎 ${escapeHtml(f.name)}</span>
+      <button onclick="removePendingFile('${kind}', ${i})" title="제거">✕</button>
+    </div>`).join('');
+}
+
+function setupDropzone(zoneId, kind) {
+  const zone = document.getElementById(zoneId);
+  ['dragenter', 'dragover'].forEach(evt => zone.addEventListener(evt, e => {
+    e.preventDefault();
+    zone.classList.add('dragover');
+  }));
+  ['dragleave', 'drop'].forEach(evt => zone.addEventListener(evt, e => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+  }));
+  zone.addEventListener('drop', e => {
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+      addPendingFiles(kind, e.dataTransfer.files);
+    }
+  });
+}
+window.addEventListener('load', () => {
+  setupDropzone('materialsDropzone', 'materials');
+  setupDropzone('otherDropzone', 'other');
+});
 
 // ---------- 레코드 CRUD (Firebase REST) ----------
 let records = {};
@@ -383,6 +437,10 @@ function resetForm() {
   document.getElementById('materialsExisting').innerHTML = '';
   document.getElementById('linksExisting').innerHTML = '';
   document.getElementById('otherExisting').innerHTML = '';
+  pendingMaterialsFiles = [];
+  pendingOtherFiles = [];
+  renderPendingFiles('materials');
+  renderPendingFiles('other');
   document.getElementById('cancelEditBtn').style.display = 'none';
   document.getElementById('saveStatus').classList.remove('show');
 }
@@ -423,6 +481,10 @@ function editRecord(id) {
   renderExistingFiles('materialsExisting', existingMaterials);
   renderExistingFiles('otherExisting', existingOther);
   renderLinks();
+  pendingMaterialsFiles = [];
+  pendingOtherFiles = [];
+  renderPendingFiles('materials');
+  renderPendingFiles('other');
   document.getElementById('cancelEditBtn').style.display = 'inline-block';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -439,15 +501,13 @@ async function saveRecord() {
 
   try {
     addLink();
-    const materialsFileInput = document.getElementById('f_materialsFile');
-    const otherFileInput = document.getElementById('f_otherFile');
-    const hasNewFiles = materialsFileInput.files.length || otherFileInput.files.length;
+    const hasNewFiles = pendingMaterialsFiles.length || pendingOtherFiles.length;
     if (hasNewFiles && !accessToken) {
       status.textContent = 'Google Drive 인증 중...';
     }
 
-    const newMaterials = await uploadFiles(materialsFileInput);
-    const newOther = await uploadFiles(otherFileInput);
+    const newMaterials = await uploadFiles(pendingMaterialsFiles);
+    const newOther = await uploadFiles(pendingOtherFiles);
 
     const record = {
       title,
